@@ -2,6 +2,7 @@ import argparse
 import sys
 import parse as idl_parser
 import gen
+import os
 
 parser = argparse.ArgumentParser(
     prog=sys.argv[0],
@@ -9,7 +10,7 @@ parser = argparse.ArgumentParser(
     epilog='nerd')
 
 parser.add_argument('filename')
-parser.add_argument('-o', '--output')
+parser.add_argument('-d', '--directory')
 
 args = parser.parse_args()
 
@@ -29,10 +30,18 @@ interface = program[0]
 
 interface_name = str(interface.name).lower()
 
-output_c = interface_name + '.c'
-output_h = interface_name + '.h'
+output_dir = ""
 
-output_srv_h = interface_name + '_srv.h'
+if args.directory:
+    output_dir = args.directory
+
+output_c = os.path.join(output_dir, interface_name + '.c')
+output_h = os.path.join(output_dir, interface_name + '.h')
+
+output_srv_h = os.path.join(output_dir, interface_name + '_srv.h')
+
+
+print(output_c)
 
 with open(output_h, "w") as f:
     f.write(f"#ifndef {interface_name.upper()}_H\n")

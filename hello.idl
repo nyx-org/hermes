@@ -1,3 +1,0 @@
-interface Hello {
-    i32 say_hi(string256 name)
-}

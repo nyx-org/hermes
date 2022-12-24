@@ -7,6 +7,8 @@ return_types = []
 def gen_includes(f):
     f.write("#include <ichor/base.h>\n")
     f.write("#include <ichor/port.h>\n")
+    f.write("#include <ichor/syscalls.h>\n")
+    f.write("#include <stdc-shim/string.h>\n")
 
 
 def gen_function_prototype(f, function, interface_name, port=True):
@@ -45,7 +47,8 @@ def gen_interface_decl(f, interface, interface_name, attr):
     for i in interface:
         f.write(
             f"#define {interface_name.upper()}_{str(i.name).upper()} {curr_val}\n")
-        gen_function_prototype(f, i, interface_name)
+        gen_function_prototype(f, i, interface_name,
+                               attr.name != "common_port")
         f.write(";\n")
         curr_val = curr_val + 1
 
