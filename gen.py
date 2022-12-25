@@ -45,10 +45,15 @@ def gen_interface_decl(f, interface, interface_name, attr):
     gen_includes(f)
     curr_val = 0
     for i in interface:
+        port = True
+
+        if attr:
+            if attr.name == "common_port":
+                port = False
         f.write(
             f"#define {interface_name.upper()}_{str(i.name).upper()} {curr_val}\n")
         gen_function_prototype(f, i, interface_name,
-                               attr.name != "common_port")
+                               port)
         f.write(";\n")
         curr_val = curr_val + 1
 
@@ -127,8 +132,15 @@ def gen_interface_def(f, interface, interface_name, attr):
     req_struct_name = gen_request_struct(f, interface_name, interface)
 
     for i in interface:
+
+        port = True
+
+        if attr:
+            if attr.name == "common_port":
+                port = False
+
         gen_function_prototype(f, i, interface_name,
-                               attr.name != "common_port")
+                               port)
 
         f.write("\n{\n")
         f.write(f"\t{req_struct_name} msg = {{}};\n")
@@ -136,8 +148,9 @@ def gen_interface_def(f, interface, interface_name, attr):
 
         port_name = "__port"
 
-        if attr.name == "common_port":
-            port_name = f"sys_get_common_port({int(attr.value.thing)})"
+        if attr:
+            if attr.name == "common_port":
+                port_name = f"sys_get_common_port({int(attr.value.thing)})"
 
         f.write(
             f"\tmsg.call = {interface_name.upper()}_{str(i.name).upper()};\n\tmsg.header = (PortMessageHeader){{.size=sizeof(msg), .dest={port_name}, .type=PORT_MSG_TYPE_DEFAULT}};\n")
