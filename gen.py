@@ -67,6 +67,8 @@ def gen_response_struct(f, interface, interface_name):
     for i in return_types:
         if i == "string256":
             f.write(f"char {i}_val[256];\n")
+        if i == "shared_ptr":
+            f.write(f"int {i}_shmd;\n")
         elif i != "Port":
             f.write(f" {c_types[i]} {i}_val;\n")
 
@@ -81,6 +83,8 @@ def gen_request_struct_for_function(f, interface_name, function):
     for p in function.params.items():
         if p[1].typing == "string256":
             f.write(f"char {p[1].name}[256];")
+        if p[1].typing == "shared_ptr":
+            f.write(f"int {p[1].name}_shmd;\n")
         elif p[1].typing != "Port":
             f.write(f"{c_types[p[1].typing]} {p[1].name};")
 
@@ -169,6 +173,12 @@ def gen_interface_def(f, interface, interface_name, attr):
             elif p[1].typing == "Port":
                 has_port = True
                 port = p[1].name
+            elif p[1].typing == "shared_ptr":
+                f.write(f"\tmsg.header.shmd_count++;\n")
+                f.write(
+                    f"\tPortSharedMemoryDescriptor shmd_{p[1].name} = (PortSharedMemoryDescriptor){{.addr = {p[1].name}, .size = {p[1].name}_size}};\n")
+                f.write(
+                    f"\tmsg.requests.{i.name}.{p[1].name}_shmd = msg.header.shmd_count-1;\n")
             else:
                 f.write(
                     f"\tmsg.requests.{i.name}.{p[1].name} = {p[1].name};\n")

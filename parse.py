@@ -14,6 +14,7 @@ c_types = {
     "char": "char",
     "bool": "bool",
     "Port": "Port",
+    "shared_ptr": "void*"
 }
 
 
@@ -31,7 +32,9 @@ class Type(Keyword):
         K("ptr"),
         K("char"),
         K("Port"),
-        K("bool"))
+        K("bool"),
+        K("shared_ptr"),
+    )
 
 
 class Parameter:
