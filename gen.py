@@ -83,7 +83,7 @@ def gen_request_struct_for_function(f, interface_name, function):
     for p in function.params.items():
         if p[1].typing == "string256":
             f.write(f"char {p[1].name}[256];")
-        if p[1].typing == "shared_ptr":
+        elif p[1].typing == "shared_ptr":
             f.write(f"int {p[1].name}_shmd;\n")
         elif p[1].typing != "Port":
             f.write(f"{c_types[p[1].typing]} {p[1].name};")
