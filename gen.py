@@ -176,7 +176,7 @@ def gen_interface_def(f, interface, interface_name, attr):
             elif p[1].typing == "shared_ptr":
                 f.write(f"\tmsg.header.shmd_count++;\n")
                 f.write(
-                    f"\tPortSharedMemoryDescriptor shmd_{p[1].name} = (PortSharedMemoryDescriptor){{.address = {p[1].name}, .size = {p[1].name}_size}};\n")
+                    f"\tPortSharedMemoryDescriptor shmd_{p[1].name} = (PortSharedMemoryDescriptor){{.address = (uintptr_t){p[1].name}, .size = {p[1].name}_size}};\n")
                 f.write(
                     f"\tmsg.requests.{i.name}.{p[1].name}_shmd = msg.header.shmd_count-1;\n")
                 f.write(
