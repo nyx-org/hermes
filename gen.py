@@ -1,5 +1,6 @@
 from parse import *
-import stringcase
+import string
+import re
 
 return_types = []
 
@@ -9,6 +10,12 @@ def gen_includes(f):
     f.write("#include <ichor/port.h>\n")
     f.write("#include <ichor/syscalls.h>\n")
     f.write("#include <stdc-shim/string.h>\n")
+
+
+def pascalcase(s):
+    result = string.capwords(s.replace('_', ' '))
+    result = result.replace(' ', '')
+    return result
 
 
 def gen_function_prototype(f, function, interface_name, port=True):
@@ -72,7 +79,7 @@ def gen_response_struct(f, interface, interface_name):
         elif i != "Port":
             f.write(f" {c_types[i]} {i}_val;\n")
 
-    name = stringcase.pascalcase(f"{interface_name}_response")
+    name = pascalcase(f"{interface_name}_response")
     f.write(f" }} _data; \n}} {name}; \n")
     return name
 
@@ -88,7 +95,7 @@ def gen_request_struct_for_function(f, interface_name, function):
         elif p[1].typing != "Port":
             f.write(f"{c_types[p[1].typing]} {p[1].name};")
 
-    name = stringcase.pascalcase(f"{interface_name}_{function.name}_req")
+    name = pascalcase(f"{interface_name}_{function.name}_req")
     f.write(f"}} {name};\n\n")
 
 
@@ -96,9 +103,9 @@ def gen_request_struct(f, interface_name, interface):
     f.write(
         "typedef struct \n{\n PortMessageHeader header;\n uint8_t call;\n union \n {\n ")
 
-    struct_name = stringcase.pascalcase(f"{interface_name}_req")
+    struct_name = pascalcase(f"{interface_name}_req")
     for i in interface:
-        type_name = stringcase.pascalcase(f"{interface_name}_{i.name}_req")
+        type_name = pascalcase(f"{interface_name}_{i.name}_req")
         f.write(f" {type_name} {i.name};\n")
     f.write(f" }} requests;\n}} {struct_name};\n")
     return struct_name
