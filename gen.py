@@ -179,6 +179,8 @@ def gen_interface_def(f, interface, interface_name, attr):
                     f"\tPortSharedMemoryDescriptor shmd_{p[1].name} = (PortSharedMemoryDescriptor){{.address = {p[1].name}, .size = {p[1].name}_size}};\n")
                 f.write(
                     f"\tmsg.requests.{i.name}.{p[1].name}_shmd = msg.header.shmd_count-1;\n")
+                f.write(
+                    f"\tmsg.header.shmds[msg.header.shmd_count-1] = shmd_{p[1].name};\n")
             else:
                 f.write(
                     f"\tmsg.requests.{i.name}.{p[1].name} = {p[1].name};\n")
