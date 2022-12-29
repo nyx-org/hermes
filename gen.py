@@ -18,8 +18,12 @@ def pascalcase(s):
     return result
 
 
-def gen_function_prototype(f, function, interface_name, port=True):
+def gen_function_prototype(f, function, interface_name, port=True, static=False):
     global return_types
+
+    if static == True:
+        f.write("static ")
+
     f.write(f"{c_types[function.typing]} {interface_name}_{function.name}(")
 
     return_types.append(str(function.typing))
@@ -48,8 +52,10 @@ def gen_function_prototype(f, function, interface_name, port=True):
     f.write(")")
 
 
-def gen_interface_decl(f, interface, interface_name, attr):
-    gen_includes(f)
+def gen_interface_decl(f, interface, interface_name, attr, constexpr=False, include=True, numbers_only=False):
+
+    if include == True:
+        gen_includes(f)
     curr_val = 0
     for i in interface:
         port = True
@@ -57,12 +63,21 @@ def gen_interface_decl(f, interface, interface_name, attr):
         if attr:
             if attr.name == "common_port":
                 port = False
-        f.write(
-            f"#define {interface_name.upper()}_{str(i.name).upper()} {curr_val}\n")
+        if constexpr == False:
+            f.write(
+                f"#define {interface_name.upper()}_{str(i.name).upper()} {curr_val}\n")
+        else:
+            f.write(
+                f"constexpr int {interface_name.upper()}_{str(i.name).upper()} = {curr_val};\n")
+
+    if numbers_only == False:
         gen_function_prototype(f, i, interface_name,
                                port)
         f.write(";\n")
-        curr_val = curr_val + 1
+    else:
+        global return_types
+        return_types.append(str(i.typing))
+    curr_val = curr_val + 1
 
 
 def gen_response_struct(f, interface, interface_name):
@@ -183,7 +198,7 @@ def gen_interface_def(f, interface, interface_name, attr):
             elif p[1].typing == "shared_ptr":
                 f.write(f"\tmsg.header.shmd_count++;\n")
                 f.write(
-                    f"\tPortSharedMemoryDescriptor shmd_{p[1].name} = (PortSharedMemoryDescriptor){{.address = (uintptr_t){p[1].name}, .size = {p[1].name}_size}};\n")
+                    f"\tPortSharedMemoryDescriptor shmd_{p[1].name} = (PortSharedMemoryDescriptor){{.address = (uintptr_t){p[1].name}, .size = (uint16_t){p[1].name}_size}};\n")
                 f.write(
                     f"\tmsg.requests.{i.name}.{p[1].name}_shmd = msg.header.shmd_count-1;\n")
                 f.write(
