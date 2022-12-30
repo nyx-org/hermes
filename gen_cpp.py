@@ -6,14 +6,16 @@ file_template = R"""
 #include <stdint.h>
 #include <stddef.h>
 #include <nyx/syscall.h>
+#include <mlibc/debug.hpp>
 
-size_t strlen(const char *s);
-void *memcpy(void * dest, const void * src, size_t n);
+extern "C" size_t strlen(const char *s);
+extern "C" void *memset(void *buf, int c, size_t n);
+extern "C" void *memcpy(void * dest, const void * src, size_t n);
 
 namespace {} {{
     constexpr int PORT_SEND = 0;
     constexpr int PORT_RECV = 1;
-    
+
     constexpr int PORT_MSG_TYPE_DEFAULT = (1 << 0);
     constexpr int PORT_MSG_TYPE_RIGHT = (1 << 1);
     constexpr int PORT_MSG_TYPE_RIGHT_ONCE = (1 << 2);
@@ -23,49 +25,53 @@ namespace {} {{
 
     constexpr int PORT_NULL = 0;
 
-    struct [[gnu::packed]] PortSharedMemoryDescriptor
+    struct PortSharedMemoryDescriptor
     {{
         uintptr_t address;
-        uint16_t size;
+        size_t size;
     }};
 
-    struct [[gnu::packed]] PortMessageHeader
+    struct PortMessageHeader
     {{
-        uint8_t type;                         
-        uint32_t size;                        
-        uint32_t dest;                        
-        uint32_t port_right;                  
-        uint8_t shmd_count;                   
-        PortSharedMemoryDescriptor shmds[16]; 
+        uint8_t type;
+        uint32_t size;
+        uint32_t dest;
+        uint32_t port_right;
+        uint8_t shmd_count;
+        PortSharedMemoryDescriptor shmds[16];
     }};
 
    using Port = uint32_t;
 
    static inline Port sys_alloc_port(uint8_t rights)
    {{
-        return __syscall(SYS_ALLOC_PORT, rights).ret;
+        return __syscall1(SYS_ALLOC_PORT, rights).ret;
    }}
    static inline void sys_free_port(Port port)
    {{
-        __syscall(SYS_FREE_PORT, port);
+        __syscall1(SYS_FREE_PORT, port);
+   }}
+   static inline void sys_debug(const char *s)
+   {{
+        __syscall1(SYS_LOG, (uintptr_t)s);
    }}
    static inline Port sys_get_common_port(uint8_t id)
    {{
-      return (Port)__syscall(SYS_GET_COMMON_PORT, id).ret;
+      return (Port)__syscall1(SYS_GET_COMMON_PORT, id).ret;
    }}
 
-   static inline size_t sys_msg(uint8_t msg_type, Port port_to_receive, size_t bytes_to_receive, PortMessageHeader *header)
+   static size_t sys_msg(uint8_t msg_type, Port port_to_receive, size_t bytes_to_receive, PortMessageHeader *header)
    {{
-        return __syscall(SYS_MSG, msg_type, port_to_receive, bytes_to_receive, (uintptr_t)header).ret;
+        return __syscall4(SYS_MSG, msg_type, port_to_receive, bytes_to_receive, (uintptr_t)header).ret;
    }}
 
-   static void wait_for_message(Port port, size_t size, PortMessageHeader *buffer)
+    static void wait_for_message(Port port, size_t size, PortMessageHeader *buffer)
    {{
         while (true)
         {{
             if (!sys_msg(PORT_RECV, port, size, buffer))
-            {{   
-                __sycall(SYS_YIELD);
+            {{
+                __syscall0(SYS_YIELD);
             }}
 	        else
 	        {{
@@ -74,21 +80,14 @@ namespace {} {{
         }}
     }}
 
-    static inline int send_bidirectional_message(Port port_to_reply_on, PortMessageHeader *message)
-    {{
-        message->type = PORT_MSG_TYPE_RIGHT_ONCE;
-        message->port_right = port_to_reply_on;
-
-        sys_msg(PORT_SEND, PORT_NULL, -1, message);
-
-        return 0;
-    }}
-
-    static inline PortMessageHeader *send_and_wait_for_reply(PortMessageHeader *message_to_send, size_t size_to_recv, PortMessageHeader *msg_to_receive)
+    static PortMessageHeader *send_and_wait_for_reply(PortMessageHeader *message_to_send, size_t size_to_recv, PortMessageHeader *msg_to_receive)
     {{
         Port port_to_reply_on = sys_alloc_port(PORT_RIGHT_RECV | PORT_RIGHT_SEND);
 
-        send_bidirectional_message(port_to_reply_on, message_to_send);
+        message_to_send->type = PORT_MSG_TYPE_RIGHT_ONCE;
+        message_to_send->port_right = port_to_reply_on;
+
+        sys_msg(PORT_SEND, PORT_NULL, -1, message_to_send);
 
         wait_for_message(port_to_reply_on, size_to_recv, msg_to_receive);
 
@@ -97,7 +96,7 @@ namespace {} {{
         return msg_to_receive;
     }}
 
-    static inline PortMessageHeader *send_and_wait_for_reply(Port port, PortMessageHeader *message_to_send, size_t size_to_recv, PortMessageHeader *msg_to_receive)
+    static PortMessageHeader *send_and_wait_for_reply_port(Port port, PortMessageHeader *message_to_send, size_t size_to_recv, PortMessageHeader *msg_to_receive)
     {{
         message_to_send->type = PORT_MSG_TYPE_RIGHT;
         message_to_send->port_right = port;
@@ -141,18 +140,18 @@ def gen_interface(f, interface, interface_name, attr):
                                port, static=True)
 
         f.write("\n{\n")
-        f.write(f"\t{req_struct_name} msg = {{}};\n")
+        f.write(f"\t{req_struct_name} msg = {{0}};\n")
         f.write(f"\t{resp_struct_name} response = {{}};\n")
-
         port_name = "__port"
 
         if attr:
             if attr.name == "common_port":
                 port_name = f"sys_get_common_port({int(attr.value.thing)})"
 
-        f.write(
-            f"\tmsg.call = {interface_name.upper()}_{str(i.name).upper()};\n\tmsg.header = (PortMessageHeader){{.type=PORT_MSG_TYPE_DEFAULT, .size=sizeof(msg), .dest={port_name}}};\n")
+        f.write("//\tmemset(&msg, 0, sizeof(msg));\n")
 
+        f.write(
+            f"\tmsg.call = {interface_name.upper()}_{str(i.name).upper()};\n\tmsg.header.type=PORT_MSG_TYPE_DEFAULT;\n\tmsg.header.size=sizeof(msg);\n\tmsg.header.dest = {port_name};\n")
         has_port = False
         port = ""
         port_return_type = False
@@ -164,13 +163,14 @@ def gen_interface(f, interface, interface_name, attr):
             if p[1].typing == "string256":
                 f.write(
                     f"\tmemcpy((char*)msg.requests.{i.name}.{p[1].name}, {p[1].name}, strlen({p[1].name}));\n")
+
             elif p[1].typing == "Port":
                 has_port = True
                 port = p[1].name
             elif p[1].typing == "shared_ptr":
                 f.write(f"\tmsg.header.shmd_count++;\n")
                 f.write(
-                    f"\tPortSharedMemoryDescriptor shmd_{p[1].name} = (PortSharedMemoryDescriptor){{.address = (uintptr_t){p[1].name}, .size = (uint16_t){p[1].name}_size}};\n")
+                    f"\tPortSharedMemoryDescriptor shmd_{p[1].name} = (PortSharedMemoryDescriptor){{.address = (uintptr_t){p[1].name}, .size = {p[1].name}_size}};\n")
                 f.write(
                     f"\tmsg.requests.{i.name}.{p[1].name}_shmd = msg.header.shmd_count-1;\n")
                 f.write(
@@ -184,7 +184,7 @@ def gen_interface(f, interface, interface_name, attr):
                 f"\tresponse = *({resp_struct_name}*)send_and_wait_for_reply(&msg.header, sizeof(response), &response.header);\n")
         else:
             f.write(
-                f"\tresponse = *({resp_struct_name}*)send_port_right_and_wait_for_reply({port}, &msg.header, sizeof(response), &response.header);\n")
+                f"\tresponse = *({resp_struct_name}*)send_and_wait_for_reply_port({port}, &msg.header, sizeof(response), &response.header);\n")
 
         if port_return_type is not True:
             f.write(f"\treturn response._data.{i.typing}_val;\n")

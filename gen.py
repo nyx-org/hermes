@@ -53,7 +53,7 @@ def gen_function_prototype(f, function, interface_name, port=True, static=False)
 
 
 def gen_interface_decl(f, interface, interface_name, attr, constexpr=False, include=True, numbers_only=False):
-
+    global return_types
     if include == True:
         gen_includes(f)
     curr_val = 0
@@ -70,14 +70,13 @@ def gen_interface_decl(f, interface, interface_name, attr, constexpr=False, incl
             f.write(
                 f"constexpr int {interface_name.upper()}_{str(i.name).upper()} = {curr_val};\n")
 
-    if numbers_only == False:
-        gen_function_prototype(f, i, interface_name,
-                               port)
-        f.write(";\n")
-    else:
-        global return_types
-        return_types.append(str(i.typing))
-    curr_val = curr_val + 1
+        if numbers_only == False:
+            gen_function_prototype(f, i, interface_name,
+                                   port)
+            f.write(";\n")
+        else:
+            return_types.append(str(i.typing))
+        curr_val = curr_val + 1
 
 
 def gen_response_struct(f, interface, interface_name):
